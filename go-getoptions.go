@@ -76,6 +76,8 @@ type GetOpt struct {
 
 	// isCommand
 	isCommand bool
+	// CommandFn
+	commandFn CommandFn
 
 	// Option handling
 	// TODO: Option handling should trickle down to commands.
@@ -96,6 +98,9 @@ type GetOpt struct {
 
 // ModifyFn - Function signature for functions that modify an option.
 type ModifyFn func(*option.Option)
+
+// CommandFn - Function signature for commands
+type CommandFn func(*GetOpt, []string) error
 
 // New returns an empty object of type GetOpt.
 // This is the starting point when using go-getoptions.
@@ -120,6 +125,11 @@ func NewCommand() *GetOpt {
 	return gopt
 }
 
+func (gopt *GetOpt) SetCommandFn(fn CommandFn) *GetOpt {
+	gopt.commandFn = fn
+	return gopt
+}
+
 func (gopt *GetOpt) completionAppendAliases(aliases []string) {
 	node := gopt.completion.GetChildByName("options")
 	for _, alias := range aliases {
@@ -137,6 +147,64 @@ func (gopt *GetOpt) Self(name string, description string) *GetOpt {
 	gopt.name = name
 	gopt.description = description
 	return gopt
+}
+
+// Dispatch -
+func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) {
+	scriptName := filepath.Base(os.Args[0])
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, gopt.Help())
+		fmt.Fprintf(os.Stderr, "Use '%s help <command>' for extra details!\n", scriptName)
+		os.Exit(1)
+	}
+	switch args[0] {
+	case "help":
+		if len(args) > 1 {
+			commandName := args[1]
+			for name, v := range gopt.commands {
+				if commandName == name {
+					fmt.Fprintf(os.Stderr, v.Help())
+					os.Exit(1)
+				}
+			}
+			fmt.Fprintf(os.Stderr, "ERROR: Unkown help entry '%s'\n", commandName)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, gopt.Help())
+		fmt.Fprintf(os.Stderr, "Use '%s help <command>' for extra details!\n", scriptName)
+		os.Exit(1)
+	default:
+		commandName := args[0]
+		if gopt.Called(helpOptionName) {
+			for name, v := range gopt.commands {
+				if commandName == name {
+					fmt.Fprintf(os.Stderr, v.Help())
+					os.Exit(1)
+				}
+			}
+
+		}
+		for name, v := range gopt.commands {
+			if commandName == name {
+				// TODO: Call Run
+				if v.commandFn != nil {
+					err := v.commandFn(v, args[1:])
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+						os.Exit(1)
+					}
+				}
+				os.Exit(0)
+			}
+		}
+		if strings.HasPrefix(args[0], "-") {
+			fmt.Fprintf(os.Stderr, "ERROR: Not a command or a valid option: '%s'\n       Did you mean to pass it after the command?\n", args[0])
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stderr, "ERROR: Not a command: '%s'\n", args[0])
+		os.Exit(1)
+	}
+	os.Exit(1)
 }
 
 // TODO: Consider extracting, gopt.obj can be passed as an arg.
