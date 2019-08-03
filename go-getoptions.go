@@ -15,6 +15,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -385,6 +386,12 @@ func (gopt *GetOpt) Command(options *GetOpt) {
 	if options.name == "" {
 		panic("Argument to Command must have a name.\nUse `.Self(...)` to define it!")
 	}
+	// Validate aliases
+	for _, option := range options.obj {
+		gopt.failIfDefined(option.Aliases)
+	}
+
+	// Add completion
 	node := options.completion
 	node.Kind = completion.StringNode
 	node.Name = options.name
@@ -958,7 +965,7 @@ func (gopt *GetOpt) Stringer() string {
 }
 
 // TODO: Add case insensitive matching.
-func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias string, found bool) {
+func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias string, found bool, err error) {
 	found = false
 	for name, option := range gopt.obj {
 		for _, v := range option.Aliases {
@@ -971,6 +978,28 @@ func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias strin
 			}
 		}
 	}
+
+	// Attempt to fully match command option
+	matches := []string{}
+	for _, command := range gopt.commands {
+		for name, option := range command.obj {
+			for _, v := range option.Aliases {
+				Debug.Printf("Trying to lazy match '%s' against '%s' alias for '%s'\n", alias, v, name)
+				if v == alias {
+					Debug.Printf("found: %s, %s\n", v, alias)
+					matches = append(matches, v)
+					continue
+				}
+			}
+		}
+	}
+	// If there are full matches of the command return with an empty match at the parent.
+	// There is no case in which a match could be found at the parent because aliases are checked.
+	if len(matches) >= 1 {
+		Debug.Printf("getOptionFromAliases return: %s, %s, %v\n", optName, usedAlias, found)
+		return optName, usedAlias, found, nil
+	}
+
 	// Attempt to match initial chars of option
 	if !found {
 		matches := []string{}
@@ -986,13 +1015,36 @@ func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias strin
 			}
 		}
 		Debug.Printf("matches: %v(%d), %s\n", matches, len(matches), alias)
+		// Attempt to match command option
+		commandMatches := []string{}
+		for _, command := range gopt.commands {
+			for name, option := range command.obj {
+				for _, v := range option.Aliases {
+					Debug.Printf("Trying to lazy match '%s' against '%s' alias for '%s'\n", alias, v, name)
+					if strings.HasPrefix(v, alias) {
+						Debug.Printf("found: %s, %s\n", v, alias)
+						commandMatches = append(commandMatches, v)
+						continue
+					}
+				}
+			}
+		}
+		Debug.Printf("commandMatches: %v(%d), %s\n", commandMatches, len(commandMatches), alias)
 		if len(matches) == 1 {
 			found = true
 			optName = matches[0]
+		} else if len(matches) > 1 {
+			sort.Strings(matches)
+			sort.Strings(commandMatches)
+			return optName, usedAlias, found, fmt.Errorf(text.ErrorAmbiguousArgument, alias, append(matches, commandMatches...))
+		}
+		if len(commandMatches) >= 1 {
+			sort.Strings(commandMatches)
+			return optName, usedAlias, found, fmt.Errorf(text.ErrorAmbiguousArgument, alias, append([]string{usedAlias}, commandMatches...))
 		}
 	}
 	Debug.Printf("getOptionFromAliases return: %s, %s, %v\n", optName, usedAlias, found)
-	return optName, usedAlias, found
+	return optName, usedAlias, found, nil
 }
 
 // Parse - Call the parse method when done describing.
@@ -1036,7 +1088,11 @@ func (gopt *GetOpt) Parse(args []string) ([]string, error) {
 			Debug.Printf("Parse continue\n")
 			for _, optElement := range optList {
 				Debug.Printf("Parse optElement: %s\n", optElement)
-				if optName, usedAlias, ok := gopt.getOptionFromAliases(optElement); ok {
+				optName, usedAlias, ok, err := gopt.getOptionFromAliases(optElement)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
 					Debug.Printf("Parse found opt_list\n")
 					opt := gopt.Option(optName)
 					handler := opt.Handler

@@ -1,6 +1,15 @@
 = Changelog
 :toc:
 
+== master
+
+=== New Features
+
+• Make options unambiguous with subcommands.
+`--profile` at the parent was getting matched with the `-p` for `--password` at the child.
+
+• Introduce new error indicating which options are getting matched with ambiguous options.
+
 == v0.14.1 Golang Bug fix: module install error
 
 Bypass double dot golang modules error:

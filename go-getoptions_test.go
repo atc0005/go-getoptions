@@ -668,8 +668,8 @@ func TestGetOptAliases(t *testing.T) {
 	if err == nil {
 		t.Errorf("Ambiguous argument 'fl' didn't raise unknown option error")
 	}
-	if err != nil && err.Error() != "Unknown option 'fl'" {
-		t.Errorf("Error string didn't match expected value")
+	if err != nil && err.Error() != fmt.Sprintf(text.ErrorAmbiguousArgument, "fl", []string{"flag", "fleg"}) {
+		t.Errorf("Error string didn't match expected value: %s", err)
 	}
 
 	// Bug: Startup panic when alias matches the beginning of preexisting option
@@ -1987,6 +1987,90 @@ func TestCommandPanicWithNoNameInput(t *testing.T) {
 	opt := New()
 	opt.Command(New())
 	opt.Parse([]string{})
+}
+
+// Verifies that a panic is reached when the same option is defined twice in the command.
+func TestCommandDuplicateDefinition(t *testing.T) {
+	s := ""
+	buf := bytes.NewBufferString(s)
+	Debug.SetOutput(buf)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Duplicate definition did not panic")
+		}
+	}()
+	var profile, password string
+	opt := New()
+	opt.StringVar(&profile, "profile", "", opt.Alias("p"))
+	command := New()
+	command.StringVar(&password, "password", "", command.Alias("p"))
+	opt.Command(command.Self("command", ""))
+	_, err := opt.Parse([]string{})
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	t.Log(buf.String())
+}
+
+// Make options unambiguous with subcomamnds.
+// --profile at the parent was getting matched with the -p for --password at the child.
+func TestCommandAmbiguosOption(t *testing.T) {
+	s := ""
+	buf := bytes.NewBufferString(s)
+	Debug.SetOutput(buf)
+	t.Run("Should not match parent", func(t *testing.T) {
+		var passion string
+		opt := New()
+		opt.SetUnknownMode(Pass)
+		opt.StringVar(&passion, "passion", "")
+		command := New()
+		command.String("password", "", command.Alias("p"))
+		opt.Command(command.Self("command", ""))
+		_, err := opt.Parse([]string{"-p", "hello"})
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if passion != "" {
+			t.Errorf("Unexpected called option passion %s", passion)
+		}
+		t.Log(buf.String())
+	})
+
+	t.Run("Should raise error", func(t *testing.T) {
+		opt := New()
+		opt.SetUnknownMode(Pass)
+		opt.String("passion", "")
+		command := New()
+		command.String("password", "", command.Alias("p"))
+		opt.Command(command.Self("command", ""))
+		_, err := opt.Parse([]string{"-pass", "hello"})
+		if err == nil {
+			t.Errorf("Ambiguous argument didn't raise unknown option error")
+		}
+		if err != nil && err.Error() != fmt.Sprintf(text.ErrorAmbiguousArgument, "pass", []string{"passion", "password"}) {
+			t.Errorf("Error string didn't match expected value: %s", err)
+		}
+		t.Log(buf.String())
+	})
+
+	t.Run("Should raise error", func(t *testing.T) {
+		opt := New()
+		opt.SetUnknownMode(Pass)
+		opt.String("password", "")
+		opt.String("passion", "")
+		command := New()
+		command.String("profile", "")
+		command.String("person", "")
+		opt.Command(command.Self("command", ""))
+		_, err := opt.Parse([]string{"-p", "hello"})
+		if err == nil {
+			t.Errorf("Ambiguous argument didn't raise unknown option error")
+		}
+		if err != nil && err.Error() != fmt.Sprintf(text.ErrorAmbiguousArgument, "p", []string{"passion", "password", "person", "profile"}) {
+			t.Errorf("Error string didn't match expected value: %s", err)
+		}
+		t.Log(buf.String())
+	})
 }
 
 func TestAll(t *testing.T) {
