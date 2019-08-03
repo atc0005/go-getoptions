@@ -1989,29 +1989,6 @@ func TestCommandPanicWithNoNameInput(t *testing.T) {
 	opt.Parse([]string{})
 }
 
-// Verifies that a panic is reached when the same option is defined twice in the command.
-func TestCommandDuplicateDefinition(t *testing.T) {
-	s := ""
-	buf := bytes.NewBufferString(s)
-	Debug.SetOutput(buf)
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("Duplicate definition did not panic")
-		}
-	}()
-	var profile, password string
-	opt := New()
-	opt.StringVar(&profile, "profile", "", opt.Alias("p"))
-	command := New()
-	command.StringVar(&password, "password", "", command.Alias("p"))
-	opt.Command(command.Self("command", ""))
-	_, err := opt.Parse([]string{})
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err)
-	}
-	t.Log(buf.String())
-}
-
 // Make options unambiguous with subcomamnds.
 // --profile at the parent was getting matched with the -p for --password at the child.
 func TestCommandAmbiguosOption(t *testing.T) {
@@ -2032,6 +2009,42 @@ func TestCommandAmbiguosOption(t *testing.T) {
 		}
 		if passion != "" {
 			t.Errorf("Unexpected called option passion %s", passion)
+		}
+		t.Log(buf.String())
+	})
+
+	t.Run("Should match parent", func(t *testing.T) {
+		var help bool
+		opt := New()
+		opt.SetUnknownMode(Pass)
+		opt.BoolVar(&help, "help", false)
+		command := New()
+		command.Bool("help", false)
+		opt.Command(command.Self("command", ""))
+		_, err := opt.Parse([]string{"-help", "hello"})
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if help != true {
+			t.Errorf("Unexpected called option help %v", help)
+		}
+		t.Log(buf.String())
+	})
+
+	t.Run("Should not match child", func(t *testing.T) {
+		var help bool
+		opt := New()
+		opt.Bool("help", false)
+		opt.SetUnknownMode(Pass)
+		command := New()
+		command.BoolVar(&help, "help", false)
+		opt.Command(command.Self("command", ""))
+		_, err := opt.Parse([]string{"-help", "hello"})
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if help != false {
+			t.Errorf("Unexpected called option help %v", help)
 		}
 		t.Log(buf.String())
 	})
