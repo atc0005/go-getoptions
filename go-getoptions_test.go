@@ -18,6 +18,13 @@ import (
 	"github.com/DavidGamba/go-getoptions/text"
 )
 
+func setupLogging() *bytes.Buffer {
+	s := ""
+	buf := bytes.NewBufferString(s)
+	Debug.SetOutput(buf)
+	return buf
+}
+
 func TestIsOption(t *testing.T) {
 	Debug.SetOutput(os.Stderr)
 	Debug.SetOutput(ioutil.Discard)
@@ -1977,6 +1984,20 @@ func TestCommandPanicWithNilInput(t *testing.T) {
 	opt.Parse([]string{})
 }
 
+func TestCommandPanicWithNew(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Did not panic")
+		}
+	}()
+	opt := New()
+	opt.Command(New().Self("command", ""))
+	_, err := opt.Parse([]string{})
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+}
+
 // Verifies that a panic is reached when Command is called with a getoptions without a name.
 func TestCommandPanicWithNoNameInput(t *testing.T) {
 	defer func() {
@@ -1985,7 +2006,7 @@ func TestCommandPanicWithNoNameInput(t *testing.T) {
 		}
 	}()
 	opt := New()
-	opt.Command(New())
+	opt.Command(NewCommand())
 	opt.Parse([]string{})
 }
 
@@ -2035,10 +2056,8 @@ func TestCommandDuplicateDefinition2(t *testing.T) {
 // Make options unambiguous with subcomamnds.
 // --profile at the parent was getting matched with the -p for --password at the child.
 func TestCommandAmbiguosOption(t *testing.T) {
-	s := ""
-	buf := bytes.NewBufferString(s)
-	Debug.SetOutput(buf)
 	t.Run("Should not match parent", func(t *testing.T) {
+		buf := setupLogging()
 		var passion string
 		opt := New()
 		opt.SetUnknownMode(Pass)
@@ -2057,6 +2076,7 @@ func TestCommandAmbiguosOption(t *testing.T) {
 	})
 
 	t.Run("Should match parent", func(t *testing.T) {
+		buf := setupLogging()
 		var help bool
 		opt := New()
 		opt.SetUnknownMode(Pass)
@@ -2073,15 +2093,16 @@ func TestCommandAmbiguosOption(t *testing.T) {
 	})
 
 	t.Run("Should raise error", func(t *testing.T) {
+		buf := setupLogging()
 		opt := New()
 		opt.SetUnknownMode(Pass)
 		opt.String("passion", "")
 		command := NewCommand()
 		command.String("password", "", command.Alias("p"))
 		opt.Command(command.Self("command", ""))
-		_, err := opt.Parse([]string{"-pass", "hello"})
+		_, err := opt.Parse([]string{"--pass", "hello"})
 		if err == nil {
-			t.Errorf("Ambiguous argument didn't raise unknown option error")
+			t.Errorf("Ambiguous argument didn't raise error")
 		}
 		if err != nil && err.Error() != fmt.Sprintf(text.ErrorAmbiguousArgument, "pass", []string{"passion", "password"}) {
 			t.Errorf("Error string didn't match expected value: %s", err)
@@ -2090,6 +2111,7 @@ func TestCommandAmbiguosOption(t *testing.T) {
 	})
 
 	t.Run("Should raise error", func(t *testing.T) {
+		buf := setupLogging()
 		opt := New()
 		opt.SetUnknownMode(Pass)
 		opt.String("password", "")
@@ -2109,6 +2131,29 @@ func TestCommandAmbiguosOption(t *testing.T) {
 	})
 
 	t.Run("Should not raise error", func(t *testing.T) {
+		buf := setupLogging()
+		opt := New()
+		opt.SetUnknownMode(Pass)
+		opt.SetRequireOrder()
+		opt.String("profile", "")
+		command := NewCommand()
+		command.String("password", "", command.Alias("p"))
+		opt.Command(command.Self("command", ""))
+		_, err := opt.Parse([]string{"-p", "hola"})
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if opt.Called("profile") {
+			t.Errorf("Unexpected error")
+		}
+		if command.Called("password") {
+			t.Errorf("Unexpected error")
+		}
+		t.Log(buf.String())
+	})
+
+	t.Run("Should not raise error", func(t *testing.T) {
+		buf := setupLogging()
 		opt := New()
 		opt.SetUnknownMode(Pass)
 		opt.Bool("help", false)
@@ -2128,6 +2173,7 @@ func TestCommandAmbiguosOption(t *testing.T) {
 	})
 
 	t.Run("Should not raise error", func(t *testing.T) {
+		buf := setupLogging()
 		opt := New()
 		opt.SetUnknownMode(Pass)
 		opt.Bool("help", false)

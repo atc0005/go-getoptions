@@ -214,6 +214,17 @@ func (gopt *GetOpt) SetOption(opts ...*option.Option) *GetOpt {
 	return gopt
 }
 
+// Internal only
+func (gopt *GetOpt) setOption(opts ...*option.Option) *GetOpt {
+	node := gopt.completion.GetChildByName("options")
+	for _, opt := range opts {
+		gopt.obj[opt.Name] = opt
+		// TODO: Add aliases
+		node.Entries = append(node.Entries, opt.Name)
+	}
+	return gopt
+}
+
 // SetMode - Sets the Operation Mode.
 // The operation mode only affects options starting with a single dash '-'.
 // The available operation modes are: normal, bundling or singleDash.
@@ -436,7 +447,7 @@ func (gopt *GetOpt) Bool(name string, def bool, fns ...ModifyFn) *bool {
 		fn(opt)
 	}
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &def
 }
 
@@ -478,7 +489,7 @@ func (gopt *GetOpt) NBool(name string, def bool, fns ...ModifyFn) *bool {
 	gopt.failIfDefined(aliases)
 	opt.SetAlias(aliases...)
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &def
 }
 
@@ -540,7 +551,7 @@ func (gopt *GetOpt) String(name, def string, fns ...ModifyFn) *string {
 		fn(opt)
 	}
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &def
 }
 
@@ -570,7 +581,7 @@ func (gopt *GetOpt) StringOptional(name string, def string, fns ...ModifyFn) *st
 		fn(opt)
 	}
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &def
 }
 
@@ -598,7 +609,7 @@ func (gopt *GetOpt) Int(name string, def int, fns ...ModifyFn) *int {
 		fn(opt)
 	}
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &def
 }
 
@@ -627,7 +638,7 @@ func (gopt *GetOpt) IntOptional(name string, def int, fns ...ModifyFn) *int {
 		fn(opt)
 	}
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &def
 }
 
@@ -655,7 +666,7 @@ func (gopt *GetOpt) Float64(name string, def float64, fns ...ModifyFn) *float64 
 		fn(opt)
 	}
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &def
 }
 
@@ -702,7 +713,7 @@ func (gopt *GetOpt) StringSlice(name string, min, max int, fns ...ModifyFn) *[]s
 	}
 	Debug.Printf("StringMulti return: %v\n", s)
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &s
 }
 
@@ -765,7 +776,7 @@ func (gopt *GetOpt) IntSlice(name string, min, max int, fns ...ModifyFn) *[]int 
 	}
 	Debug.Printf("IntMulti return: %v\n", s)
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &s
 }
 
@@ -829,7 +840,7 @@ func (gopt *GetOpt) StringMap(name string, min, max int, fns ...ModifyFn) map[st
 	}
 	Debug.Printf("StringMulti return: %v\n", s)
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return s
 }
 
@@ -942,7 +953,7 @@ func (gopt *GetOpt) Increment(name string, def int, fns ...ModifyFn) *int {
 		fn(opt)
 	}
 	gopt.completionAppendAliases(opt.Aliases)
-	gopt.SetOption(opt)
+	gopt.setOption(opt)
 	return &def
 }
 
@@ -989,6 +1000,7 @@ func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias strin
 		for _, v := range option.Aliases {
 			Debug.Printf("Trying to match '%s' against '%s' alias for '%s'\n", alias, v, name)
 			if v == alias {
+				Debug.Printf("found: %s, %s\n", v, alias)
 				found = true
 				optName = name
 				usedAlias = v
@@ -1002,7 +1014,7 @@ func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias strin
 	for _, command := range gopt.commands {
 		for name, option := range command.obj {
 			for _, v := range option.Aliases {
-				Debug.Printf("Trying to lazy match '%s' against '%s' alias for '%s'\n", alias, v, name)
+				Debug.Printf("Trying to match '%s' against '%s' alias for command option '%s'\n", alias, v, name)
 				if v == alias {
 					Debug.Printf("found: %s, %s\n", v, alias)
 					matches = append(matches, v)
@@ -1040,7 +1052,7 @@ func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias strin
 		for _, command := range gopt.commands {
 			for name, option := range command.obj {
 				for _, v := range option.Aliases {
-					Debug.Printf("Trying to lazy match '%s' against '%s' alias for '%s'\n", alias, v, name)
+					Debug.Printf("Trying to lazy match '%s' against '%s' alias for command option '%s'\n", alias, v, name)
 					if strings.HasPrefix(v, alias) {
 						Debug.Printf("found: %s, %s\n", v, alias)
 						if !option.IsPassedToCommand {
