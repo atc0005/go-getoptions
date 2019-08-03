@@ -1781,8 +1781,8 @@ func TestSynopsis(t *testing.T) {
 	opt.StringSlice("req-list", 1, 2, opt.Required(), opt.ArgName("item"))
 	opt.IntSlice("intSlice", 1, 1, opt.Description("This option is using an int slice\nLets see how multiline works"))
 	opt.StringMap("strMap", 1, 2, opt.Description("Hello world"))
-	opt.Command(New().Self("log", "Log stuff"))
-	opt.Command(New().Self("show", "Show stuff"))
+	opt.Command(NewCommand().Self("log", "Log stuff"))
+	opt.Command(NewCommand().Self("show", "Show stuff"))
 	_, err := opt.Parse([]string{"--str", "a", "--int", "0", "--req-list", "a"})
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -1871,8 +1871,8 @@ OPTIONS:
 	}
 
 	opt = New()
-	opt.Command(New().Self("log", "Log stuff"))
-	opt.Command(New().Self("show", "Show stuff"))
+	opt.Command(NewCommand().Self("log", "Log stuff"))
+	opt.Command(NewCommand().Self("show", "Show stuff"))
 	opt.Self("name", "description...")
 	_, err = opt.Parse([]string{})
 	if err != nil {
@@ -1927,7 +1927,7 @@ func TestCompletion(t *testing.T) {
 	exitFn = func(code int) { called = true }
 	opt := New()
 	opt.Bool("flag", false, opt.Alias("f"))
-	opt.Command(New().Self("help", "Show help").CustomCompletion([]string{"log", "show"}))
+	opt.Command(NewCommand().Self("help", "Show help").CustomCompletion([]string{"log", "show"}))
 
 	cleanup := func() {
 		os.Setenv("COMP_LINE", "")
@@ -1989,6 +1989,49 @@ func TestCommandPanicWithNoNameInput(t *testing.T) {
 	opt.Parse([]string{})
 }
 
+// Verifies that a panic is reached when the same option is defined twice in the command.
+func TestCommandDuplicateDefinition(t *testing.T) {
+	s := ""
+	buf := bytes.NewBufferString(s)
+	Debug.SetOutput(buf)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Duplicate definition did not panic")
+		}
+	}()
+	opt := New()
+	opt.String("profile", "", opt.Alias("p"))
+	command := NewCommand()
+	command.String("password", "", command.Alias("p"))
+	opt.Command(command.Self("command", ""))
+	_, err := opt.Parse([]string{})
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	t.Log(buf.String())
+}
+
+func TestCommandDuplicateDefinition2(t *testing.T) {
+	s := ""
+	buf := bytes.NewBufferString(s)
+	Debug.SetOutput(buf)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("Duplicate definition did not panic")
+		}
+	}()
+	opt := New()
+	opt.String("profile", "", opt.Alias("p"))
+	command := NewCommand()
+	command.String("p", "")
+	opt.Command(command.Self("command", ""))
+	_, err := opt.Parse([]string{})
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err)
+	}
+	t.Log(buf.String())
+}
+
 // Make options unambiguous with subcomamnds.
 // --profile at the parent was getting matched with the -p for --password at the child.
 func TestCommandAmbiguosOption(t *testing.T) {
@@ -2000,7 +2043,7 @@ func TestCommandAmbiguosOption(t *testing.T) {
 		opt := New()
 		opt.SetUnknownMode(Pass)
 		opt.StringVar(&passion, "passion", "")
-		command := New()
+		command := NewCommand()
 		command.String("password", "", command.Alias("p"))
 		opt.Command(command.Self("command", ""))
 		_, err := opt.Parse([]string{"-p", "hello"})
@@ -2018,9 +2061,7 @@ func TestCommandAmbiguosOption(t *testing.T) {
 		opt := New()
 		opt.SetUnknownMode(Pass)
 		opt.BoolVar(&help, "help", false)
-		command := New()
-		command.Bool("help", false)
-		opt.Command(command.Self("command", ""))
+		opt.Command(NewCommand().Self("command", "").SetOption(opt.Option("help")))
 		_, err := opt.Parse([]string{"-help", "hello"})
 		if err != nil {
 			t.Errorf("Unexpected error: %s", err)
@@ -2031,29 +2072,11 @@ func TestCommandAmbiguosOption(t *testing.T) {
 		t.Log(buf.String())
 	})
 
-	t.Run("Should not match child", func(t *testing.T) {
-		var help bool
-		opt := New()
-		opt.Bool("help", false)
-		opt.SetUnknownMode(Pass)
-		command := New()
-		command.BoolVar(&help, "help", false)
-		opt.Command(command.Self("command", ""))
-		_, err := opt.Parse([]string{"-help", "hello"})
-		if err != nil {
-			t.Errorf("Unexpected error: %s", err)
-		}
-		if help != false {
-			t.Errorf("Unexpected called option help %v", help)
-		}
-		t.Log(buf.String())
-	})
-
 	t.Run("Should raise error", func(t *testing.T) {
 		opt := New()
 		opt.SetUnknownMode(Pass)
 		opt.String("passion", "")
-		command := New()
+		command := NewCommand()
 		command.String("password", "", command.Alias("p"))
 		opt.Command(command.Self("command", ""))
 		_, err := opt.Parse([]string{"-pass", "hello"})
@@ -2071,16 +2094,54 @@ func TestCommandAmbiguosOption(t *testing.T) {
 		opt.SetUnknownMode(Pass)
 		opt.String("password", "")
 		opt.String("passion", "")
-		command := New()
+		command := NewCommand()
 		command.String("profile", "")
 		command.String("person", "")
 		opt.Command(command.Self("command", ""))
-		_, err := opt.Parse([]string{"-p", "hello"})
+		_, err := opt.Parse([]string{"-p", "hola"})
 		if err == nil {
 			t.Errorf("Ambiguous argument didn't raise unknown option error")
 		}
 		if err != nil && err.Error() != fmt.Sprintf(text.ErrorAmbiguousArgument, "p", []string{"passion", "password", "person", "profile"}) {
 			t.Errorf("Error string didn't match expected value: %s", err)
+		}
+		t.Log(buf.String())
+	})
+
+	t.Run("Should not raise error", func(t *testing.T) {
+		opt := New()
+		opt.SetUnknownMode(Pass)
+		opt.Bool("help", false)
+		command := NewCommand()
+		opt.Command(command.Self("command", "").SetOption(opt.Option("help")))
+		_, err := opt.Parse([]string{"--help"})
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if !opt.Called("help") {
+			t.Errorf("Unexpected error")
+		}
+		if !command.Called("help") {
+			t.Errorf("Unexpected error")
+		}
+		t.Log(buf.String())
+	})
+
+	t.Run("Should not raise error", func(t *testing.T) {
+		opt := New()
+		opt.SetUnknownMode(Pass)
+		opt.Bool("help", false)
+		command := NewCommand()
+		opt.Command(command.Self("command", "").SetOption(opt.Option("help")))
+		_, err := opt.Parse([]string{"-h"})
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err)
+		}
+		if !opt.Called("help") {
+			t.Errorf("Unexpected error")
+		}
+		if !command.Called("help") {
+			t.Errorf("Unexpected error")
 		}
 		t.Log(buf.String())
 	})
