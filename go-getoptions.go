@@ -188,20 +188,15 @@ func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
 				if v.commandFn != nil {
 					err := v.commandFn(v, args[1:])
 					if err != nil {
-						// return err
-						return nil
+						return err
 					}
 				}
 				return nil
 			}
 		}
-		// TODO: Use isoption
 		if strings.HasPrefix(args[0], "-") {
-			// TODO: Return err
-			fmt.Fprintf(os.Stderr,
-				`Not a command or a valid option: '%s'
+			return fmt.Errorf(`Not a command or a valid option: '%s'
        Did you mean to pass it after the command?`, args[0])
-			exitFn(1)
 		}
 		return fmt.Errorf("Not a command: '%s'", args[0])
 	}
