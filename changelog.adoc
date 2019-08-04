@@ -10,6 +10,11 @@
 
 • Introduce new error indicating which options are getting matched with ambiguous options.
 
+=== Minor changes
+
+• Fix unknown option warning formatting.
+Each warning has its own line and it is preceded by `WARNING: `.
+
 == v0.14.1 Golang Bug fix: module install error
 
 Bypass double dot golang modules error:

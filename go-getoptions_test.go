@@ -158,15 +158,16 @@ func TestUnknownOptionModes(t *testing.T) {
 	opt = New()
 	opt.Writer = buf
 	opt.SetUnknownMode(Warn)
-	remaining, err := opt.Parse([]string{"--flags"})
+	remaining, err := opt.Parse([]string{"--flags", "--flegs"})
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err)
 	}
-	if buf.String() != fmt.Sprintf(text.MessageOnUnknown, "flags") {
+	if buf.String() !=
+		fmt.Sprintf("WARNING: "+text.MessageOnUnknown+"\nWARNING: "+text.MessageOnUnknown+"\n", "flags", "flegs") {
 		t.Errorf("Warning message didn't match expected value: %s", buf.String())
 	}
-	if !reflect.DeepEqual(remaining, []string{"--flags"}) {
-		t.Errorf("remaining didn't have expected value: %v != %v", remaining, []string{"--flags"})
+	if !reflect.DeepEqual(remaining, []string{"--flags", "--flegs"}) {
+		t.Errorf("remaining didn't have expected value: %v != %v", remaining, []string{"--flags", "--flegs"})
 	}
 
 	// Tests first unknown argument as a passthrough

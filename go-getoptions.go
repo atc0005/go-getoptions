@@ -150,12 +150,12 @@ func (gopt *GetOpt) Self(name string, description string) *GetOpt {
 }
 
 // Dispatch -
-func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) {
+func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
 	scriptName := filepath.Base(os.Args[0])
 	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, gopt.Help())
-		fmt.Fprintf(os.Stderr, "Use '%s help <command>' for extra details!\n", scriptName)
-		os.Exit(1)
+		fmt.Fprintf(gopt.Writer, gopt.Help())
+		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details!\n", scriptName)
+		exitFn(1)
 	}
 	switch args[0] {
 	case "help":
@@ -163,48 +163,49 @@ func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) {
 			commandName := args[1]
 			for name, v := range gopt.commands {
 				if commandName == name {
-					fmt.Fprintf(os.Stderr, v.Help())
-					os.Exit(1)
+					fmt.Fprintf(gopt.Writer, v.Help())
+					exitFn(1)
 				}
 			}
-			fmt.Fprintf(os.Stderr, "ERROR: Unkown help entry '%s'\n", commandName)
-			os.Exit(1)
+			return fmt.Errorf("Unkown help entry '%s'", commandName)
 		}
-		fmt.Fprintf(os.Stderr, gopt.Help())
-		fmt.Fprintf(os.Stderr, "Use '%s help <command>' for extra details!\n", scriptName)
-		os.Exit(1)
+		fmt.Fprintf(gopt.Writer, gopt.Help())
+		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details!\n", scriptName)
+		exitFn(1)
 	default:
 		commandName := args[0]
 		if gopt.Called(helpOptionName) {
 			for name, v := range gopt.commands {
 				if commandName == name {
-					fmt.Fprintf(os.Stderr, v.Help())
-					os.Exit(1)
+					fmt.Fprintf(gopt.Writer, v.Help())
+					exitFn(1)
 				}
 			}
 
 		}
 		for name, v := range gopt.commands {
 			if commandName == name {
-				// TODO: Call Run
 				if v.commandFn != nil {
 					err := v.commandFn(v, args[1:])
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
-						os.Exit(1)
+						// return err
+						return nil
 					}
 				}
-				os.Exit(0)
+				return nil
 			}
 		}
+		// TODO: Use isoption
 		if strings.HasPrefix(args[0], "-") {
-			fmt.Fprintf(os.Stderr, "ERROR: Not a command or a valid option: '%s'\n       Did you mean to pass it after the command?\n", args[0])
-			os.Exit(1)
+			// TODO: Return err
+			fmt.Fprintf(os.Stderr,
+				`Not a command or a valid option: '%s'
+       Did you mean to pass it after the command?`, args[0])
+			exitFn(1)
 		}
-		fmt.Fprintf(os.Stderr, "ERROR: Not a command: '%s'\n", args[0])
-		os.Exit(1)
+		return fmt.Errorf("Not a command: '%s'", args[0])
 	}
-	os.Exit(1)
+	return nil
 }
 
 // TODO: Consider extracting, gopt.obj can be passed as an arg.
@@ -1218,7 +1219,8 @@ func (gopt *GetOpt) Parse(args []string) ([]string, error) {
 						remaining = append(remaining, arg)
 						break
 					case Warn:
-						fmt.Fprintf(gopt.Writer, text.MessageOnUnknown, optElement)
+						// TODO: This WARNING can't be changed into another language. Hardcoded.
+						fmt.Fprintf(gopt.Writer, "WARNING: "+text.MessageOnUnknown+"\n", optElement)
 						remaining = append(remaining, arg)
 						break
 					default:
