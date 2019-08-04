@@ -10,6 +10,9 @@
 
 • Introduce new error indicating which options are getting matched with ambiguous options.
 
+• Add `getoptions.HelpCommand()` to have an automated help command.
+It adds completions for all other commands automatically.
+
 === Minor changes
 
 • Fix unknown option warning formatting.

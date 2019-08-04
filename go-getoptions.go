@@ -468,6 +468,22 @@ func (gopt *GetOpt) Help(sections ...HelpSection) string {
 	return helpTxt
 }
 
+// HelpCommand - Adds a help command with completion for all other commands.
+// NOTE: Define after all other commands have been defined.
+func (gopt *GetOpt) HelpCommand(description string) *GetOpt {
+	if description == "" {
+		description = "Use 'help <command>' for extra details!"
+	}
+	opt := NewCommand()
+	opt.Self("help", description)
+	commands := []string{}
+	for name, _ := range gopt.commands {
+		commands = append(commands, name)
+	}
+	opt.CustomCompletion(commands)
+	return opt
+}
+
 // Command - Allows defining a child command.
 func (gopt *GetOpt) Command(options *GetOpt) {
 	if options == nil {
