@@ -154,7 +154,7 @@ func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
 	scriptName := filepath.Base(os.Args[0])
 	if len(args) == 0 {
 		fmt.Fprintf(gopt.Writer, gopt.Help())
-		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details!\n", scriptName)
+		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details\n", scriptName)
 		exitFn(1)
 	}
 	switch args[0] {
@@ -170,7 +170,7 @@ func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
 			return fmt.Errorf("Unkown help entry '%s'", commandName)
 		}
 		fmt.Fprintf(gopt.Writer, gopt.Help())
-		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details!\n", scriptName)
+		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details\n", scriptName)
 		exitFn(1)
 	default:
 		commandName := args[0]
@@ -472,7 +472,7 @@ func (gopt *GetOpt) Help(sections ...HelpSection) string {
 // NOTE: Define after all other commands have been defined.
 func (gopt *GetOpt) HelpCommand(description string) *GetOpt {
 	if description == "" {
-		description = "Use 'help <command>' for extra details!"
+		description = "Use 'help <command>' for extra details"
 	}
 	opt := NewCommand()
 	opt.Self("help", description)
