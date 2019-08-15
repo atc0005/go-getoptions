@@ -77,7 +77,7 @@ type GetOpt struct {
 	// isCommand
 	isCommand bool
 	// CommandFn
-	commandFn CommandFn
+	CommandFn CommandFn
 
 	// Option handling
 	// TODO: Option handling should trickle down to commands.
@@ -126,7 +126,7 @@ func NewCommand() *GetOpt {
 }
 
 func (gopt *GetOpt) SetCommandFn(fn CommandFn) *GetOpt {
-	gopt.commandFn = fn
+	gopt.CommandFn = fn
 	return gopt
 }
 
@@ -154,8 +154,10 @@ func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
 	scriptName := filepath.Base(os.Args[0])
 	if len(args) == 0 {
 		fmt.Fprintf(gopt.Writer, gopt.Help())
+		// TODO: Expose string as var?
 		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details\n", scriptName)
 		exitFn(1)
+		return nil
 	}
 	switch args[0] {
 	case "help":
@@ -165,13 +167,17 @@ func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
 				if commandName == name {
 					fmt.Fprintf(gopt.Writer, v.Help())
 					exitFn(1)
+					return nil
 				}
 			}
+			// TODO: Expose string as var?
 			return fmt.Errorf("Unkown help entry '%s'", commandName)
 		}
 		fmt.Fprintf(gopt.Writer, gopt.Help())
+		// TODO: Expose string as var?
 		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details\n", scriptName)
 		exitFn(1)
+		return nil
 	default:
 		commandName := args[0]
 		if gopt.Called(helpOptionName) {
@@ -179,14 +185,15 @@ func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
 				if commandName == name {
 					fmt.Fprintf(gopt.Writer, v.Help())
 					exitFn(1)
+					return nil
 				}
 			}
 
 		}
 		for name, v := range gopt.commands {
 			if commandName == name {
-				if v.commandFn != nil {
-					err := v.commandFn(v, args[1:])
+				if v.CommandFn != nil {
+					err := v.CommandFn(v, args[1:])
 					if err != nil {
 						return err
 					}
@@ -195,12 +202,13 @@ func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
 			}
 		}
 		if strings.HasPrefix(args[0], "-") {
+			// TODO: Expose string as var?
 			return fmt.Errorf(`Not a command or a valid option: '%s'
        Did you mean to pass it after the command?`, args[0])
 		}
+		// TODO: Expose string as var?
 		return fmt.Errorf("Not a command: '%s'", args[0])
 	}
-	return nil
 }
 
 // TODO: Consider extracting, gopt.obj can be passed as an arg.
