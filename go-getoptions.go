@@ -149,13 +149,23 @@ func (gopt *GetOpt) Self(name string, description string) *GetOpt {
 	return gopt
 }
 
+func (gopt *GetOpt) extraDetails() string {
+	scriptName := filepath.Base(os.Args[0])
+	description := ""
+	// TODO: Expose string as var?
+	if gopt.isCommand {
+		description = fmt.Sprintf("Use '%s %s help <command>' for extra details.", scriptName, gopt.name)
+	} else {
+		description = fmt.Sprintf("Use '%s help <command>' for extra details.", scriptName)
+	}
+	return description
+}
+
 // Dispatch -
 func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
-	scriptName := filepath.Base(os.Args[0])
 	if len(args) == 0 {
 		fmt.Fprintf(gopt.Writer, gopt.Help())
-		// TODO: Expose string as var?
-		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details\n", scriptName)
+		fmt.Fprintf(gopt.Writer, gopt.extraDetails()+"\n")
 		exitFn(1)
 		return nil
 	}
@@ -174,8 +184,7 @@ func (gopt *GetOpt) Dispatch(helpOptionName string, args []string) error {
 			return fmt.Errorf("Unkown help entry '%s'", commandName)
 		}
 		fmt.Fprintf(gopt.Writer, gopt.Help())
-		// TODO: Expose string as var?
-		fmt.Fprintf(gopt.Writer, "Use '%s help <command>' for extra details\n", scriptName)
+		fmt.Fprintf(gopt.Writer, gopt.extraDetails()+"\n")
 		exitFn(1)
 		return nil
 	default:
@@ -471,6 +480,9 @@ func (gopt *GetOpt) Help(sections ...HelpSection) string {
 				options = append(options, option)
 			}
 			helpTxt += help.OptionList(options)
+			if gopt.isCommand {
+				helpTxt += fmt.Sprintf("See '%s help' for information about global parameters.\n", scriptName)
+			}
 		}
 	}
 	return helpTxt
@@ -480,7 +492,7 @@ func (gopt *GetOpt) Help(sections ...HelpSection) string {
 // NOTE: Define after all other commands have been defined.
 func (gopt *GetOpt) HelpCommand(description string) *GetOpt {
 	if description == "" {
-		description = "Use 'help <command>' for extra details"
+		description = gopt.extraDetails()
 	}
 	opt := NewCommand()
 	opt.Self("help", description)

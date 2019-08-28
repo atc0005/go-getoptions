@@ -18,6 +18,24 @@ import (
 	"github.com/DavidGamba/go-getoptions/text"
 )
 
+func firstDiff(got, expected string) string {
+	same := ""
+	for i, gc := range got {
+		if len([]rune(expected)) <= i {
+			return fmt.Sprintf("Index: %d | diff: got '%s' - exp '%s'\n", len(expected), got, expected)
+		}
+		if gc != []rune(expected)[i] {
+			return fmt.Sprintf("Index: %d | diff: got '%c' - exp '%c'\n%s\n", i, gc, []rune(expected)[i], same)
+		} else {
+			same += string(gc)
+		}
+	}
+	if len(expected) > len(got) {
+		return fmt.Sprintf("Index: %d | diff: got '%s' - exp '%s'\n", len(got), got, expected)
+	}
+	return ""
+}
+
 func setupLogging() *bytes.Buffer {
 	s := ""
 	buf := bytes.NewBufferString(s)
@@ -1841,23 +1859,6 @@ OPTIONS:
 
 `
 
-	firstDiff := func(got, expected string) string {
-		same := ""
-		for i, gc := range got {
-			if len([]rune(expected)) <= i {
-				return fmt.Sprintf("Index: %d | diff: got '%s' - exp '%s'\n", len(expected), got, expected)
-			}
-			if gc != []rune(expected)[i] {
-				return fmt.Sprintf("Index: %d | diff: got '%c' - exp '%c'\n%s\n", i, gc, []rune(expected)[i], same)
-			} else {
-				same += string(gc)
-			}
-		}
-		if len(expected) > len(got) {
-			return fmt.Sprintf("Index: %d | diff: got '%s' - exp '%s'\n", len(got), got, expected)
-		}
-		return ""
-	}
 	if name != expectedName {
 		fmt.Printf("got:\n%s\nexpected:\n%s\n", name, expectedName)
 		t.Errorf("Unexpected name:\n%s", firstDiff(name, expectedName))
@@ -2245,12 +2246,12 @@ func TestDispatch(t *testing.T) {
 
 COMMANDS:
     command    
-    help       Use 'help <command>' for extra details
+    help       Use 'go-getoptions.test help <command>' for extra details.
 
 OPTIONS:
     --help    (default: false)
 
-Use 'go-getoptions.test help <command>' for extra details
+Use 'go-getoptions.test help <command>' for extra details.
 `
 		if helpBuf.String() != expected {
 			t.Errorf("Wrong output:\n%s\n", helpBuf.String())
@@ -2287,15 +2288,15 @@ Use 'go-getoptions.test help <command>' for extra details
 
 COMMANDS:
     command    
-    help       Use 'help <command>' for extra details
+    help       Use 'go-getoptions.test help <command>' for extra details.
 
 OPTIONS:
     --help    (default: false)
 
-Use 'go-getoptions.test help <command>' for extra details
+Use 'go-getoptions.test help <command>' for extra details.
 `
 		if helpBuf.String() != expected {
-			t.Errorf("Wrong output:\n%s\n", helpBuf.String())
+			t.Errorf("Wrong output:\n%s\n", firstDiff(helpBuf.String(), expected))
 		}
 		t.Log(buf.String())
 	})
@@ -2333,6 +2334,7 @@ SYNOPSIS:
 OPTIONS:
     --help    (default: false)
 
+See 'go-getoptions.test help' for information about global parameters.
 `
 		if helpBuf.String() != expected {
 			t.Errorf("Wrong output:\n%s\n", helpBuf.String())
@@ -2373,6 +2375,7 @@ SYNOPSIS:
 OPTIONS:
     --help    (default: false)
 
+See 'go-getoptions.test help' for information about global parameters.
 `
 		if helpBuf.String() != expected {
 			t.Errorf("Wrong output:\n%s\n", helpBuf.String())
