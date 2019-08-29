@@ -666,6 +666,69 @@ If you are looking for options, link:http://asciidoctor.org/[asciidoctor] has a 
 
 For the help synopsis, however, use the automated help.
 
+== Command behaviour
+
+This section describes how the parser resolves ambiguities between the program and the command.
+
+Given a definition like:
+
+		func main() {
+			var profile, password string
+			opt := New()
+			opt.SetUnknownMode(Pass)
+			opt.StringVar(&profile, "profile", "")
+			command := NewCommand()
+			command.StringVar(&password, "password", "")
+			opt.Command(command.Self("command", "").SetCommandFn(commandFn))
+			remaining, err := opt.Parse(os.Args[1:])
+			...
+			err = opt.Dispatch("help", remaining)
+			...
+		}
+
+		func commandFn(opt *getoptions.GetOpt, args []string) error {
+			args, err := opt.Parse(remaining)
+			...
+		}
+
+There is an option at the parent, `profile` and one at the command, `password`.
+Passing `--p <arg>` is ambiguous and results in an error.
+At minimum, `--pr <arg>` and `--pa <arg>` are required.
+
+Given a definition like:
+
+		func main() {
+			var profile, password string
+			opt := New()
+			opt.SetUnknownMode(Pass)
+			opt.StringVar(&profile, "profile", "")
+			command := NewCommand()
+			command.StringVar(&password, "password", "", opt.Alias("p"))
+			opt.Command(command.Self("command", "").SetCommandFn(commandFn))
+			remaining, err := opt.Parse(os.Args[1:])
+			...
+			err = opt.Dispatch("help", remaining)
+			...
+		}
+
+		func commandFn(opt *getoptions.GetOpt, args []string) error {
+			args, err := opt.Parse(remaining)
+			...
+		}
+
+There is an option at the parent, `profile` and one at the command, `password` with alias `p`.
+Passing `--p <arg>` at the parent results in the parent `opt.Parse` call to leave the `--p <arg>` option unhandled and leave it in the remaining slice.
+The `opt.Dispatch` call gets the `-p <arg>` option and throws an error.
+At minimum, `--pr <arg>` is required to call `profile` at the parent and command options must be passed after the command declaration.
+
+For example, the call below is correct:
+
+	./program -pr <profile> command -p <password>
+
+But the following one is incorrect:
+
+	./program -pr <profile> -p <password> command
+
 == License
 
 This file is part of go-getoptions.
