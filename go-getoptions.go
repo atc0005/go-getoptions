@@ -1095,6 +1095,7 @@ func (gopt *GetOpt) Stringer() string {
 
 // TODO: Add case insensitive matching.
 func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias string, found bool, err error) {
+	// Attempt to fully match node option
 	found = false
 	for name, option := range gopt.obj {
 		for _, v := range option.Aliases {
@@ -1131,7 +1132,7 @@ func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias strin
 		return optName, usedAlias, found, nil
 	}
 
-	// Attempt to match initial chars of option
+	// Attempt to match initial chars of node option
 	if !found {
 		matches := []string{}
 		for name, option := range gopt.obj {
@@ -1147,7 +1148,7 @@ func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias strin
 		}
 		Debug.Printf("matches: %v(%d), %s\n", matches, len(matches), alias)
 
-		// Attempt to match command option
+		// Attempt to match initial chars of command option
 		commandMatches := []string{}
 		for _, command := range gopt.commands {
 			for name, option := range command.obj {
@@ -1165,6 +1166,11 @@ func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias strin
 		}
 		Debug.Printf("commandMatches: %v(%d), %s\n", commandMatches, len(commandMatches), alias)
 
+		if len(matches) >= 1 && len(commandMatches) >= 1 {
+			sort.Strings(matches)
+			sort.Strings(commandMatches)
+			return optName, usedAlias, found, fmt.Errorf(text.ErrorAmbiguousArgument, alias, append(matches, commandMatches...))
+		}
 		if len(matches) == 1 {
 			found = true
 			optName = matches[0]
@@ -1172,10 +1178,6 @@ func (gopt *GetOpt) getOptionFromAliases(alias string) (optName, usedAlias strin
 			sort.Strings(matches)
 			sort.Strings(commandMatches)
 			return optName, usedAlias, found, fmt.Errorf(text.ErrorAmbiguousArgument, alias, append(matches, commandMatches...))
-		}
-		if len(commandMatches) >= 1 {
-			sort.Strings(commandMatches)
-			return optName, usedAlias, found, fmt.Errorf(text.ErrorAmbiguousArgument, alias, append([]string{usedAlias}, commandMatches...))
 		}
 	}
 	Debug.Printf("getOptionFromAliases return: %s, %s, %v\n", optName, usedAlias, found)
