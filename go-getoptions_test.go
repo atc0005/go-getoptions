@@ -2364,7 +2364,11 @@ See 'go-getoptions.test help' for information about global parameters.
 		opt := New()
 		opt.Writer = helpBuf
 		opt.Bool("help", false)
-		opt.Command(NewCommand().Self("command", "").SetCommandFn(fn).SetOption(opt.Option("help")))
+		command := NewCommand().Self("command", "").SetCommandFn(fn).SetOption(opt.Option("help"))
+		subcommand := NewCommand().Self("sub-command", "").SetCommandFn(fn).SetOption(command.Option("help"))
+		command.Command(subcommand)
+		command.Command(command.HelpCommand(""))
+		opt.Command(command)
 		opt.Command(opt.HelpCommand(""))
 		remaining, err := opt.Parse([]string{"command", "--help"})
 		if err != nil {
@@ -2381,7 +2385,11 @@ See 'go-getoptions.test help' for information about global parameters.
     go-getoptions.test command
 
 SYNOPSIS:
-    go-getoptions.test command [--help]
+    go-getoptions.test command [--help] <command> [<args>]
+
+COMMANDS:
+    help           Use 'go-getoptions.test command help <command>' for extra details.
+    sub-command    
 
 OPTIONS:
     --help    (default: false)
